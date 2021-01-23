@@ -18,13 +18,13 @@ void display();
 
 int main(int argc, char **argv) {
 
-    
 
     BSpline bSpline;
 
-    bSpline.initInter();
+    bSpline.init();
 
-    bSpline.calculateControlPointsInter();
+//    bSpline.calculateControlPointsInter();
+    bSpline.calculateControlPointsAppro();
 
     show_points = bSpline.getShowPoints();
 
@@ -53,6 +53,14 @@ void display() {
     for (int i = 0; i < show_points.size(); i++) {
         glBegin(GL_LINE_STRIP);
         for (int j = 0; j < show_points[i].size(); ++j) {
+            glVertex3d(show_points[i][j].x, show_points[i][j].y, show_points[i][j].z);
+        }
+        glEnd();
+    }
+
+    for (int j = 0; j < show_points[0].size(); j++) {
+        glBegin(GL_LINE_STRIP);
+        for (int i = 0; i < show_points.size(); i++) {
             glVertex3d(show_points[i][j].x, show_points[i][j].y, show_points[i][j].z);
         }
         glEnd();
