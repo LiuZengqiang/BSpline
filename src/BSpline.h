@@ -27,17 +27,19 @@ public:
         for (int i = 0; i < 4; i++) {
             data_points_[i].resize(4);
             for (int j = 0; j < 4; j++) {
-//
                 data_points_[i][j].x = (float) j;
                 data_points_[i][j].y = (float) i;
-                data_points_[i][j].z = 0.0f;
+                if (i == 3) {
+                    data_points_[i][j].z = 1.0f;
+                } else {
+                    data_points_[i][j].z = 0.0f;
+                }
             }
         }
-
         data_points_[0][0].x = -1.5;
-        data_points_[0][0].y = -1.5;
-        data_points_[3][3].x = 3.5;
-        data_points_[3][3].y = 3.5;
+        data_points_[0][0].y = 1.5;
+        data_points_[3][0].x = -1.5;
+        data_points_[3][0].y = 1.5;
     }
 
     void calculateControlPointsInter() {
@@ -85,7 +87,6 @@ public:
         normalShowPoints();
     };
 
-
     void calculateControlPointsAppro() {
         m_ = data_points_.size() - 1;
         n_ = data_points_[0].size() - 1;
@@ -99,19 +100,12 @@ public:
         initST();
 
         initUVAppro();
-
-//        initBaseFunction();
-        // init control points' size
-
         vector<vector<Point>> temp_vec_con(e_ + 1, vector<Point>(f_ + 1));
         // e_+1*f_+1
         control_points_.assign(temp_vec_con.begin(), temp_vec_con.end());
 
-
         for (int channel = 0; channel < 3; channel++) {
-
             MatrixXf D(data_points_.size(), data_points_[0].size());
-
             // e+1, n+1
             MatrixXf temp_D(e_ + 1, n_ + 1);
 
@@ -126,8 +120,6 @@ public:
                     }
                 }
             }
-            cout << "init D." << endl;
-
             for (int col = 0; col < n_ + 1; col++) {
                 // h_ -> e_;
                 // P0 = D0
@@ -145,15 +137,11 @@ public:
                         N(i, j) = getN(j + 1, p_, s_[i + 1], u_);
                     }
                 }
-
-                cout << N << endl;
-                cout << "init N(e-1*e-1)" << endl;
                 // init QK(h-1)
                 for (int i = 0; i < e_ - 1; i++) {
                     int k = i + 1;
                     QK(i) = D(k, col) - getN(0, p_, s_[k], u_) * P0 - getN(e_, p_, s_[k], u_) * Pe;
                 }
-                cout << "init QK(e-1)" << endl;
                 // inti Q(h-1)
                 for (int i = 0; i < e_ - 1; i++) {
                     float temp = 0.0f;
@@ -162,12 +150,11 @@ public:
                     }
                     Q(i) = temp;
                 }
-                cout << "init Q(e-1)" << endl;
+
                 // NT*N*P = Q
                 MatrixXf NTN = N.transpose() * N;
                 P = NTN.lu().solve(Q);
-                cout << "init P." << endl;
-                cout << "P0.size(" << P.rows() << "," << P.cols() << ")" << endl;
+
                 temp_D(0, col) = P0;
                 temp_D(e_, col) = Pe;
                 for (int i = 0; i < e_ - 1; i++) {
@@ -176,35 +163,26 @@ public:
             }
             // temp_D(e_1 * n_+1)
             D = temp_D;
-            cout << "D.size:" << D.rows() << "," << D.cols() << endl;
-            cout << D << endl;
-            cout << "init D." << endl;
 
-            // row 4->3
+            // after processing column ,the row size is decreased
             for (int row = 0; row < m_ + 1 - 1; row++) {
-                cout << "row:" << row << endl;
-
                 float P0 = D(row, 0);
-                // Pe = Ph
                 float Pf = D(row, n_);
                 VectorXf P(f_ - 1);
                 VectorXf QK(f_ - 1);
                 VectorXf Q(f_ - 1);
                 MatrixXf N(f_ - 1, f_ - 1);
-                // init N(h-1*h-1)
                 for (int i = 0; i < f_ - 1; i++) {
                     for (int j = 0; j < f_ - 1; j++) {
                         N(i, j) = getN(j + 1, q_, t_[i + 1], v_);
                     }
                 }
-                // init QK(h-1)
-                cout << D.rows() << " " << D.cols() << endl;
-
+                // init QK
                 for (int i = 0; i < f_ - 1; i++) {
                     int k = i + 1;
                     QK(i) = D(row, k) - getN(0, q_, t_[k], v_) * P0 - getN(f_, q_, t_[k], v_) * Pf;
                 }
-                cout << "init QK." << endl;
+
                 // inti Q(h-1)
                 for (int i = 0; i < f_ - 1; i++) {
                     float temp = 0.0f;
@@ -213,56 +191,41 @@ public:
                     }
                     Q(i) = temp;
                 }
-                cout << "init Q." << endl;
+
                 MatrixXf NTN = N.transpose() * N;
                 // P()
                 P = NTN.lu().solve(Q);
-                cout << "init P." << endl;
-
-                cout << "P.size(" << P.rows() << "," << P.cols() << ")" << endl;
-
-                cout << "P0:" << P0 << "P" << P << "Pf" << Pf << endl;
-
                 if (channel == 0) {
                     control_points_[row][0].x = P0;
                     control_points_[row][f_].x = Pf;
                     for (int i = 0; i < e_ - 1; i++) {
-                        cout << "i:" << i << "ch:" << channel << endl;
                         control_points_[row][i + 1].x = P(i);
-                        cout << "after assign." << P(i) << endl;
                     }
                 } else if (channel == 1) {
                     control_points_[row][0].y = P0;
                     control_points_[row][f_].y = Pf;
-
                     for (int i = 0; i < e_ - 1; i++) {
-                        cout << "i:" << i << "ch:" << channel << endl;
                         control_points_[row][i + 1].y = P(i);
-                        cout << "after assign." << P(i) << endl;
                     }
                 } else {
                     control_points_[row][0].z = P0;
                     control_points_[row][f_].z = Pf;
                     for (int i = 0; i < e_ - 1; i++) {
-                        cout << "i:" << i << "ch:" << channel << endl;
                         control_points_[row][i + 1].z = P(i);
-                        cout << "after assign." << P(i) << endl;
                     }
                 }
             }
-            cout << "finish channel " << channel << endl;
-        }
-        cout << "control points:" << endl;
-        for (int i = 0; i < control_points_.size(); i++) {
-            for (int j = 0; j < control_points_[i].size(); j++) {
-                cout << "(" << control_points_[i][j].x << "," << control_points_[i][j].y << ","
-                     << control_points_[i][j].z << ") ";
-            }
-            cout << endl;
         }
 
+//        for (int i = 0; i < control_points_.size(); i++) {
+//            for (int j = 0; j < control_points_[i].size(); j++) {
+//                cout << "(" << control_points_[i][j].x << "," << control_points_[i][j].y << ","
+//                     << control_points_[i][j].z << ") ";
+//            }
+//            cout << endl;
+//        }
+
         calculateShowPoints();
-        cout << "calculated." << endl;
         normalShowPoints();
     }
 
@@ -278,18 +241,21 @@ public:
 private:
 
     void calculateShowPoints() {
-        show_points_.resize(num_points_on_line_);
-        for (int i = 0; i < num_points_on_line_; i++) {
-            for (int j = 0; j < num_points_on_line_; j++) {
+
+        show_points_.resize(num_points_on_line_ + 1);
+
+        for (int i = 0; i <= num_points_on_line_; i++) {
+            for (int j = 0; j <= num_points_on_line_; j++) {
                 float s = ((float) i) / num_points_on_line_;
                 float t = ((float) j) / num_points_on_line_;
 
                 if (globalFunction::floatEqual(s, 1.0f)) {
-                    s = 1.0f;
+                    s = 1.0f - Epsilon * 2;
                 }
                 if (globalFunction::floatEqual(t, 1.0f)) {
-                    t = 1.0f;
+                    t = 1.0f - Epsilon * 2;
                 }
+
                 // s,t
                 Point p(0.0f, 0.0f, 0.0f);
                 for (int x = 0; x < control_points_.size(); x++) {
@@ -304,7 +270,6 @@ private:
                 show_points_[i].push_back(p);
             }
         }
-        cout << "init show_points." << endl;
     }
 
     float getN(const int i, const int p, const float t, vector<float> &u) {

@@ -9,9 +9,13 @@ enum Mode {
     APPROXIMATION
 };
 
-
+enum ParameterMethod{
+    UNIFORMLY,
+    CHORD_LENGTH,
+    CENTRIPETAL,
+    UNIVERSAL
+};
 struct Point {
-    int id = -1;
     float x;
     float y;
     float z;

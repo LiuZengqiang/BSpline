@@ -7,34 +7,32 @@
 
 using namespace std;
 using namespace Eigen;
+
+// windows size
 unsigned int SCR_WIDTH = 400;
 unsigned int SCR_HEIGHT = 400;
 
+// points for rendering
 vector<vector<Point>> show_points;
 
 void init(void);
 
 void display();
 
+void keyBoards(unsigned char key, int x, int y);
+
 int main(int argc, char **argv) {
-
-
     BSpline bSpline;
-
     bSpline.init();
-
 //    bSpline.calculateControlPointsInter();
     bSpline.calculateControlPointsAppro();
-
     show_points = bSpline.getShowPoints();
-
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
     glutInitWindowSize(SCR_WIDTH, SCR_HEIGHT);
     glutCreateWindow("B-Spline");
-
     init();
-
+    glutKeyboardFunc(keyBoards);
     glutDisplayFunc(display);
     glutMainLoop();
     return 0;
@@ -42,13 +40,12 @@ int main(int argc, char **argv) {
 
 void init(void) {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glShadeModel(GL_FLAT);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 }
 
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glPushMatrix();
 
     for (int i = 0; i < show_points.size(); i++) {
         glBegin(GL_LINE_STRIP);
@@ -66,4 +63,37 @@ void display() {
         glEnd();
     }
     glutSwapBuffers();
+    glPopMatrix();
+}
+
+void keyBoards(unsigned char key, int x, int y) {
+    switch (key) {
+        case 'w':
+            cout << "Press W." << endl;
+            glMatrixMode(GL_MODELVIEW);
+            glRotatef(10.f, -1, 0, 0);
+            glutPostRedisplay();
+            break;
+        case 's':
+            cout << "Press W." << endl;
+            glMatrixMode(GL_MODELVIEW);
+            glRotatef(10.f, 1, 0, 0);
+            glutPostRedisplay();
+            break;
+        case 'a':
+            cout << "Press W." << endl;
+            glMatrixMode(GL_MODELVIEW);
+            glRotatef(10.f, 0, 0, 1);
+            glutPostRedisplay();
+            break;
+        case 'd':
+            cout << "Press W." << endl;
+            glMatrixMode(GL_MODELVIEW);
+            glRotatef(10.f, 0, 0, -1);
+            glutPostRedisplay();
+            break;
+        default:
+            cout << "Press =_=." << endl;
+            break;
+    }
 }
