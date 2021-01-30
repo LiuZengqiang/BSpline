@@ -18,29 +18,20 @@ using namespace Eigen;
 
 class BSpline {
 public:
-    BSpline(int m, int n) {
+    BSpline(int m, int n, int num) {
         m_ = m;
-        n_ = m;
+        n_ = n;
+        n_--;
+        num_points_on_line_ = num;
     };
 
     ~BSpline() {};
 
-    void init() {
-        // todo:: init sphere data
-//        data_points_.resize(m_);
-//        float theta = 0.0f;
-//        float alpha = 0.0f;
-//        for (int i = 0; i <= m_; i++) {
-//            data_points_[i].resize(n_ + 1);
-//
-//            for (int j = 0; j <= n_; j++) {
-//
-//
-//
-//
-//            }
-//        }
 
+    /*
+     * init point data in real sphere
+     */
+    void init() {
         data_points_.resize(m_ + 1);
         for (int i = 0; i < m_ + 1; i++) {
             data_points_[i].resize(n_ + 1);
@@ -56,22 +47,21 @@ public:
                 float x = temp * sin(globalFunction::angle2Radian(theta));
                 float z = temp * cos(globalFunction::angle2Radian(theta));
                 data_points_[i][j].x = globalFunction::floatEqual(x, 0.0f) ? 0.0f : x;
-                data_points_[i][j].x *= 100.0f;
                 data_points_[i][j].y = globalFunction::floatEqual(y, 0.0f) ? 0.0f : y;
-                data_points_[i][j].y *= 100.0f;
                 data_points_[i][j].z = globalFunction::floatEqual(z, 0.0f) ? 0.0f : z;
-                data_points_[i][j].z *= 100.0f;
+                data_points_[i][j].x *= 0.5f;
+                data_points_[i][j].y *= 0.5f;
+                data_points_[i][j].z *= 0.5f;
             }
+
+            data_points_[i].push_back(data_points_[i].front());
         }
-
-        debugPoints(data_points_);
-//        data_points_[0][0].x = -1.5;
-//        data_points_[0][0].y = 1.5;
-//        data_points_[3][0].x = -1.5;
-//        data_points_[3][0].y = 1.5;
-
+        n_++;
     }
 
+    /*
+     * calculate control points in interpolation
+     */
     void calculateControlPointsInter() {
 
         // init s_, t_
@@ -93,9 +83,7 @@ public:
         //
         for (int i = 0; i < 3; i++) {
             MatrixXf Q = base_function_s_i_.colPivHouseholderQr().solve(data_mat[i]);
-//            MatrixXf Q = base_function_s_i_.lu().solve(data_mat[i]);
             MatrixXf P = base_function_j_t_.transpose().colPivHouseholderQr().solve(Q.transpose());
-//            MatrixXf P = base_function_j_t_.transpose().lu().solve(Q.transpose());
             data_mat[i] = P.transpose();
         }
 
@@ -109,36 +97,34 @@ public:
                 control_points_[i][j].z = data_mat[2](i, j);
             }
         }
-
         calculateShowPoints();
-
-        calError();
-//        normalPoints(show_points_);
-        normalPoints();
     };
 
+    /*
+     * calculate control points in approximation
+     */
     void calculateControlPointsAppro() {
         e_ = m_ - 1;
         f_ = n_ - 1;
 
+        // default the p and q is 3
         p_ = 3;
         q_ = 3;
 
-//        p_ = 3;
-//        q_ = 3;
         initST();
 
         initUVAppro();
 
         vector<vector<Point>> temp_vec_con(e_ + 1, vector<Point>(f_ + 1));
-        // e_+1*f_+1
+
         control_points_.assign(temp_vec_con.begin(), temp_vec_con.end());
 
+        // for x,y,z three channels
         for (int channel = 0; channel < 3; channel++) {
-            MatrixXf D(data_points_.size(), data_points_[0].size());
-            // e+1, n+1
-            MatrixXf temp_D(e_ + 1, n_ + 1);
 
+            MatrixXf D(data_points_.size(), data_points_[0].size());
+            MatrixXf temp_D(e_ + 1, n_ + 1);
+            // init data points D.
             for (int i = 0; i < data_points_.size(); i++) {
                 for (int j = 0; j < data_points_[0].size(); j++) {
                     if (channel == 0) {
@@ -151,8 +137,8 @@ public:
                 }
             }
 
+            // for every col
             for (int col = 0; col < n_ + 1; col++) {
-                // h_ -> e_;
                 // P0 = D0
                 float P0 = D(0, col);
                 // Pe = Ph
@@ -176,15 +162,7 @@ public:
                     QK(i) = D(k, col) - getN(0, p_, s_[k], u_) * P0 - getN(e_, p_, s_[k], u_) * Pe;
                 }
                 // inti Q(h-1)
-                for (int i = 0; i < e_ - 1; i++) {
-                    float temp = 0.0f;
-                    for (int j = 0; j < m_ - 1; j++) {
-                        temp += QK(j) * getN(i + 1, p_, s_[j + 1], u_);
-                    }
-                    Q(i) = temp;
-                }
-
-//                Q = (QK.transpose() * N).transpose();
+                Q = (QK.transpose() * N).transpose();
                 // NT*N*P = Q
                 MatrixXf NTN = N.transpose() * N;
                 P = NTN.lu().solve(Q);
@@ -200,7 +178,7 @@ public:
             // temp_D(e_1 * n_+1)
             D = temp_D;
 
-            // after processing column ,the row size is decreased
+            // after processing all column ,the row size is decreased
             for (int row = 0; row < e_ + 1; row++) {
                 float P0 = D(row, 0);
                 float Pf = D(row, n_);
@@ -223,14 +201,7 @@ public:
                 }
 
                 // inti Q(h-1)
-                for (int i = 0; i < f_ - 1; i++) {
-                    float temp = 0.0f;
-                    for (int j = 0; j < n_ - 1; j++) {
-                        temp += QK(j) * getN(i + 1, q_, t_[j + 1], v_);
-                    }
-                    Q(i) = temp;
-                }
-//                Q = (QK.transpose() * N).transpose();
+                Q = (QK.transpose() * N).transpose();
                 MatrixXf NTN = N.transpose() * N;
                 // P()
                 P = NTN.lu().solve(Q);
@@ -256,10 +227,8 @@ public:
                 }
             }
         }
+
         calculateShowPoints();
-//        normalPoints(show_points_);
-        calError();
-        normalPoints();
     }
 
     vector<vector<Point>> &getShowPoints() {
@@ -274,25 +243,18 @@ public:
         return control_points_;
     }
 
-    void debugMat(MatrixXf &m) {
-        cout << "Mat:" << endl;
-        cout << m << endl;
+    float getError() {
+        return error_dis_;
     }
 
-    void debugPoints(vector<vector<Point>> &points) {
+    void deBugPoints(vector<vector<Point>> &points) {
         for (int i = 0; i < points.size(); i++) {
             for (int j = 0; j < points[i].size(); j++) {
-                cout << "(" << points[i][j].x << "," << points[i][j].y << "," << points[i][j].z << ")" << " ";
+                points[i][j].debug();
             }
             cout << endl;
         }
     }
-
-    float getError() {
-
-        return error_dis_;
-    }
-
 
 private:
     /**
@@ -302,6 +264,7 @@ private:
 
         show_points_.resize(num_points_on_line_ + 1);
 
+        float temp_error = 0.0f;
         for (int i = 0; i <= num_points_on_line_; i++) {
             for (int j = 0; j <= num_points_on_line_; j++) {
                 float s = ((float) i) / num_points_on_line_;
@@ -326,8 +289,11 @@ private:
                     }
                 }
                 show_points_[i].push_back(p);
+                temp_error += abs(sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.5f);
             }
         }
+        // error of points which is showed with real points
+        error_dis_ = temp_error / (show_points_.size() * show_points_[0].size()) / 0.5f;
     }
 
     /**
@@ -342,18 +308,14 @@ private:
         if (p == 0) {
             return (t >= u[i] && t < u[i + 1]) ? 1.0f : 0.0f;
         }
-
         float left = u[i + p] - u[i];
         float right = u[i + p + 1] - u[i + 1];
-
         if (globalFunction::floatEqual(left, 0.0f)) {
-//            left = 0.0f;
             left = (t - u[i]) * getN(i, p - 1, t, u);
         } else {
             left = (t - u[i]) / left * getN(i, p - 1, t, u);
         }
         if (globalFunction::floatEqual(right, 0.0f)) {
-//            right = 0.0f;
             right = (u[i + p + 1] - t) * getN(i + 1, p - 1, t, u);
         } else {
             right = (u[i + p + 1] - t) / right * getN(i + 1, p - 1, t, u);
@@ -361,6 +323,9 @@ private:
         return left + right;
     }
 
+    /**
+     * calculate error of data point with related points in surface
+     */
     float calError() {
         float error = 0.0f;
         for (int i = 0; i < data_points_.size(); i++) {
@@ -419,7 +384,6 @@ private:
             temp_s /= (n_ + 1);
             s_[i] = temp_s;
         }
-
         // init t
         t_.resize(n_ + 1);
         vector<vector<float>> v(m_ + 1, vector<float>(n_ + 1, 0.0f));
@@ -445,18 +409,9 @@ private:
             temp_t /= m_ + 1;
             t_[j] = temp_t;
         }
-        cout << "s_ t_:" << endl;
-        for (int i = 0; i < m_ + 1; i++) {
-            cout << s_[i] << " ";
-        }
-        cout << endl;
-        for (int i = 0; i < n_ + 1; i++) {
-            cout << t_[i] << " ";
-        }
-        cout << endl;
     }
 
-    // init u,v
+    // init u,v in approximation
     void initUVAppro() {
         u_.resize(e_ + p_ + 1 + 1);
         v_.resize(f_ + q_ + 1 + 1);
@@ -479,20 +434,9 @@ private:
                 v_[i] = 1.0f;
             }
         }
-
-        cout << "u_ v_:" << endl;
-        for (int i = 0; i < u_.size(); i++) {
-            cout << u_[i] << " ";
-        }
-        cout << endl;
-        for (int i = 0; i < v_.size(); i++) {
-            cout << v_[i] << " ";
-        }
-        cout << endl;
-
     }
 
-    //init u_, v_
+    //init u_, v_ in interpolation
     void initUVInter() {
         u_.resize(m_ + p_ + 1 + 1);
         v_.resize(n_ + q_ + 1 + 1);
@@ -523,15 +467,6 @@ private:
                 v_[i] = 1.0f;
             }
         }
-        cout << "u_ v_:" << endl;
-        for (int i = 0; i < u_.size(); i++) {
-            cout << u_[i] << " ";
-        }
-        cout << endl;
-        for (int i = 0; i < v_.size(); i++) {
-            cout << v_[i] << " ";
-        }
-        cout << endl;
     }
 
     // init base function
@@ -552,54 +487,6 @@ private:
             }
         }
     }
-
-    // translate data points,control points,show points to middle of windows
-    void normalPoints() {
-        normalPoints(data_points_);
-        normalPoints(control_points_);
-        normalPoints(show_points_);
-    }
-
-    void normalPoints(vector<vector<Point>> &points) {
-        float max_x = -FLT_MAX;
-        float min_x = FLT_MAX;
-        float max_y = -FLT_MAX;
-        float min_y = FLT_MAX;
-        float max_z = -FLT_MAX;
-        float min_z = FLT_MAX;
-        for (int i = 0; i < points.size(); i++) {
-            for (int j = 0; j < points[i].size(); j++) {
-                max_x = max(max_x, points[i][j].x);
-                max_y = max(max_y, points[i][j].y);
-                max_z = max(max_z, points[i][j].z);
-
-                min_x = min(min_x, points[i][j].x);
-                min_y = min(min_y, points[i][j].y);
-                min_z = min(min_z, points[i][j].z);
-            }
-        }
-
-        for (int i = 0; i < points.size(); i++) {
-            for (int j = 0; j < points[i].size(); j++) {
-                if (!globalFunction::floatEqual(max_x, min_x)) {
-                    points[i][j].x = (points[i][j].x - min_x) / (max_x - min_x) * 1.0f + (-0.5f);
-                } else {
-                    points[i][j].x = 0.0f;
-                }
-                if (!globalFunction::floatEqual(max_y, min_y)) {
-                    points[i][j].y = (points[i][j].y - min_y) / (max_y - min_y) * 1.0f + (-0.5f);
-                } else {
-                    points[i][j].y = 0.0f;
-                }
-                if (!globalFunction::floatEqual(max_z, min_z)) {
-                    points[i][j].z = (points[i][j].z - min_z) / (max_z - min_z) * 1.0f + (-0.5f);
-                } else {
-                    points[i][j].z = 0.0f;
-                }
-            }
-        }
-    }
-
     // for interpolation
     int n_ = 3;
     int m_ = 3;

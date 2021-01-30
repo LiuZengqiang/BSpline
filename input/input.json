@@ -1,0 +1,11 @@
+{
+  "m": 4,
+  "n": 4,
+  "model": inter,//appro
+  "num": 10,
+
+
+  "data": true,
+  "control": true,
+  "render": grid,//face
+}
