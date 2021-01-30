@@ -20,15 +20,6 @@ namespace globalFunction {
     bool floatEqual(float a, float b) {
         return std::abs(a - b) <= Epsilon;
     }
-
-    bool floatGreatEqual(float a, float b) {
-        if (floatEqual(a, b) || a > b) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
     bool floatLessEqual(float a, float b) {
         if (floatEqual(a, b) || a < b) {
             return true;
